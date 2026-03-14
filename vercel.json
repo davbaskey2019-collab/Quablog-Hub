@@ -1,0 +1,13 @@
+{
+  "buildCommand": "pnpm --filter @workspace/quablog run build",
+  "outputDirectory": "artifacts/quablog/dist/public",
+  "installCommand": "pnpm install",
+  "framework": null,
+  "env": {
+    "BASE_PATH": "/",
+    "PORT": "3000"
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
