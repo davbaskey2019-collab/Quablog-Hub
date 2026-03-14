@@ -1,22 +1,37 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Quablog API - Q&A and Blogging Platform
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: questions
+    description: Q&A questions
+  - name: answers
+    description: Q&A answers
+  - name: blogs
+    description: Blog posts
+  - name: admin
+    description: Admin operations
+  - name: upload
+    description: File uploads
+  - name: settings
+    description: Site settings
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +39,1290 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── AUTH ────────────────────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── USERS ───────────────────────────────────────────────────────────────────
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsersListResponse"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get a user profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update user (self or admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete a user (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /users/{id}/block:
+    post:
+      operationId: blockUser
+      tags: [users]
+      summary: Block/unblock a user (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlockUserRequest"
+      responses:
+        "200":
+          description: User blocked/unblocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  # ─── QUESTIONS ───────────────────────────────────────────────────────────────
+  /questions:
+    get:
+      operationId: listQuestions
+      tags: [questions]
+      summary: List questions
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [newest, popular, unanswered]
+            default: newest
+      responses:
+        "200":
+          description: Questions list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionsListResponse"
+
+    post:
+      operationId: createQuestion
+      tags: [questions]
+      summary: Create a question
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuestionRequest"
+      responses:
+        "201":
+          description: Created question
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+
+  /questions/{id}:
+    get:
+      operationId: getQuestion
+      tags: [questions]
+      summary: Get a question with its answers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Question detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      operationId: updateQuestion
+      tags: [questions]
+      summary: Update a question (author or admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQuestionRequest"
+      responses:
+        "200":
+          description: Updated question
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+
+    delete:
+      operationId: deleteQuestion
+      tags: [questions]
+      summary: Delete a question (author or admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /questions/{id}/vote:
+    post:
+      operationId: voteQuestion
+      tags: [questions]
+      summary: Upvote or downvote a question
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoteRequest"
+      responses:
+        "200":
+          description: Vote recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteResponse"
+
+  # ─── ANSWERS ─────────────────────────────────────────────────────────────────
+  /questions/{questionId}/answers:
+    post:
+      operationId: createAnswer
+      tags: [answers]
+      summary: Post an answer to a question
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAnswerRequest"
+      responses:
+        "201":
+          description: Created answer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Answer"
+
+  /answers/{id}:
+    patch:
+      operationId: updateAnswer
+      tags: [answers]
+      summary: Update an answer (author or admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAnswerRequest"
+      responses:
+        "200":
+          description: Updated answer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Answer"
+
+    delete:
+      operationId: deleteAnswer
+      tags: [answers]
+      summary: Delete an answer (author or admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /answers/{id}/vote:
+    post:
+      operationId: voteAnswer
+      tags: [answers]
+      summary: Upvote or downvote an answer
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoteRequest"
+      responses:
+        "200":
+          description: Vote recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteResponse"
+
+  /answers/{id}/best:
+    post:
+      operationId: markBestAnswer
+      tags: [answers]
+      summary: Mark an answer as best (question author only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked as best
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  # ─── BLOGS ───────────────────────────────────────────────────────────────────
+  /blogs:
+    get:
+      operationId: listBlogs
+      tags: [blogs]
+      summary: List blog posts
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 12
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [published, draft]
+      responses:
+        "200":
+          description: Blogs list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlogsListResponse"
+
+    post:
+      operationId: createBlog
+      tags: [blogs]
+      summary: Create a blog post
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBlogRequest"
+      responses:
+        "201":
+          description: Created blog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Blog"
+
+  /blogs/{id}:
+    get:
+      operationId: getBlog
+      tags: [blogs]
+      summary: Get a blog post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Blog post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Blog"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      operationId: updateBlog
+      tags: [blogs]
+      summary: Update a blog post (author or admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBlogRequest"
+      responses:
+        "200":
+          description: Updated blog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Blog"
+
+    delete:
+      operationId: deleteBlog
+      tags: [blogs]
+      summary: Delete a blog post (author or admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  # ─── UPLOAD ──────────────────────────────────────────────────────────────────
+  /upload/image:
+    post:
+      operationId: uploadImage
+      tags: [upload]
+      summary: Upload an image (avatar, blog cover, logo, favicon)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                type:
+                  type: string
+                  enum: [avatar, blog, logo, favicon]
+              required: [file, type]
+      responses:
+        "200":
+          description: Upload result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+
+  # ─── SETTINGS ────────────────────────────────────────────────────────────────
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get site settings (logo, favicon, site name)
+      responses:
+        "200":
+          description: Site settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update site settings (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSettingsRequest"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+
+  # ─── ADMIN ───────────────────────────────────────────────────────────────────
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get platform statistics (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Platform stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/profile:
+    patch:
+      operationId: updateAdminProfile
+      tags: [admin]
+      summary: Update admin email and/or password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAdminProfileRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+# ─── COMPONENTS ─────────────────────────────────────────────────────────────────
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required: [error]
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required: [success]
+
+    # Auth
+    RegisterRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        displayName:
+          type: string
+      required: [username, email, password, displayName]
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+      required: [token, user]
+
+    # Users
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+        displayName:
+          type: string
+        bio:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [user, admin]
+        isBlocked:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        _count:
+          type: object
+          properties:
+            questions:
+              type: integer
+            answers:
+              type: integer
+            blogs:
+              type: integer
+          nullable: true
+      required: [id, username, email, displayName, role, isBlocked, createdAt]
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        displayName:
+          type: string
+        bio:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [user, admin]
+        createdAt:
+          type: string
+          format: date-time
+        _count:
+          type: object
+          properties:
+            questions:
+              type: integer
+            answers:
+              type: integer
+            blogs:
+              type: integer
+      required: [id, username, displayName, role, createdAt, _count]
+
+    UsersListResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+      required: [users, total, page, limit, totalPages]
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+        bio:
+          type: string
+        avatarUrl:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+
+    BlockUserRequest:
+      type: object
+      properties:
+        blocked:
+          type: boolean
+      required: [blocked]
+
+    # Questions
+    Question:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        body:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        votes:
+          type: integer
+        viewCount:
+          type: integer
+        answerCount:
+          type: integer
+        hasBestAnswer:
+          type: boolean
+        authorId:
+          type: integer
+        author:
+          $ref: "#/components/schemas/UserProfile"
+        userVote:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, title, body, category, tags, votes, viewCount, answerCount, hasBestAnswer, authorId, author, createdAt, updatedAt]
+
+    QuestionDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        body:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        votes:
+          type: integer
+        viewCount:
+          type: integer
+        hasBestAnswer:
+          type: boolean
+        authorId:
+          type: integer
+        author:
+          $ref: "#/components/schemas/UserProfile"
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Answer"
+        userVote:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, title, body, category, tags, votes, viewCount, hasBestAnswer, authorId, author, answers, createdAt, updatedAt]
+
+    QuestionsListResponse:
+      type: object
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Question"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+      required: [questions, total, page, limit, totalPages]
+
+    CreateQuestionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 10
+          maxLength: 300
+        body:
+          type: string
+          minLength: 20
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 5
+      required: [title, body, category]
+
+    UpdateQuestionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    VoteRequest:
+      type: object
+      properties:
+        vote:
+          type: integer
+          enum: [1, -1, 0]
+      required: [vote]
+
+    VoteResponse:
+      type: object
+      properties:
+        votes:
+          type: integer
+        userVote:
+          type: integer
+          nullable: true
+      required: [votes]
+
+    # Answers
+    Answer:
+      type: object
+      properties:
+        id:
+          type: integer
+        body:
+          type: string
+        votes:
+          type: integer
+        isBest:
+          type: boolean
+        questionId:
+          type: integer
+        authorId:
+          type: integer
+        author:
+          $ref: "#/components/schemas/UserProfile"
+        userVote:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, body, votes, isBest, questionId, authorId, author, createdAt, updatedAt]
+
+    CreateAnswerRequest:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 10
+      required: [body]
+
+    UpdateAnswerRequest:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 10
+
+    # Blogs
+    Blog:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        excerpt:
+          type: string
+          nullable: true
+        content:
+          type: string
+        coverImageUrl:
+          type: string
+          nullable: true
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [published, draft]
+        readTime:
+          type: integer
+          nullable: true
+        authorId:
+          type: integer
+        author:
+          $ref: "#/components/schemas/UserProfile"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, title, slug, content, category, tags, status, authorId, author, createdAt, updatedAt]
+
+    BlogsListResponse:
+      type: object
+      properties:
+        blogs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Blog"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+      required: [blogs, total, page, limit, totalPages]
+
+    CreateBlogRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 300
+        content:
+          type: string
+          minLength: 50
+        excerpt:
+          type: string
+        coverImageUrl:
+          type: string
+          nullable: true
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [published, draft]
+          default: draft
+      required: [title, content, category]
+
+    UpdateBlogRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        excerpt:
+          type: string
+        coverImageUrl:
+          type: string
+          nullable: true
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [published, draft]
+
+    # Upload
+    UploadResponse:
+      type: object
+      properties:
+        url:
+          type: string
+        filename:
+          type: string
+      required: [url, filename]
+
+    # Settings
+    SiteSettings:
+      type: object
+      properties:
+        id:
+          type: integer
+        siteName:
+          type: string
+        tagline:
+          type: string
+          nullable: true
+        logoUrl:
+          type: string
+          nullable: true
+        faviconUrl:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, siteName, updatedAt]
+
+    UpdateSettingsRequest:
+      type: object
+      properties:
+        siteName:
+          type: string
+        tagline:
+          type: string
+        logoUrl:
+          type: string
+          nullable: true
+        faviconUrl:
+          type: string
+          nullable: true
+
+    # Admin
+    AdminStats:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        totalQuestions:
+          type: integer
+        totalAnswers:
+          type: integer
+        totalBlogs:
+          type: integer
+        newUsersToday:
+          type: integer
+        newQuestionsToday:
+          type: integer
+        newBlogsToday:
+          type: integer
+        recentUsers:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        recentQuestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Question"
+        recentBlogs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Blog"
+      required: [totalUsers, totalQuestions, totalAnswers, totalBlogs, newUsersToday, newQuestionsToday, newBlogsToday, recentUsers, recentQuestions, recentBlogs]
+
+    UpdateAdminProfileRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 6

@@ -1,0 +1,22 @@
+packages:
+  "framer-motion": "Smooth page transitions, layout animations, and custom modals for a premium feel"
+  "date-fns": "Human-readable date formatting for blog posts and Q&A timestamps"
+  "react-hook-form": "Robust form state management"
+  "@hookform/resolvers": "Zod resolver for react-hook-form validation"
+  "clsx": "Utility for conditionally joining class names"
+  "tailwind-merge": "Utility for merging tailwind classes safely"
+
+images:
+  - path: "artifacts/quablog/public/images/hero-bg.png"
+    description: "Warm, abstract, modern geometric shapes overlapping with a soft, clean cream and terracotta color palette. Minimalist, premium vector illustration style, ideal for a background."
+    aspect_ratio: "16:9"
+  - path: "artifacts/quablog/public/images/default-avatar.png"
+    description: "A very clean, minimalist default user avatar illustration, soft warm colors, blank face, professional."
+    aspect_ratio: "1:1"
+  - path: "artifacts/quablog/public/images/default-cover.png"
+    description: "A beautiful abstract blog post cover image, warm neutral colors, soft gradients and grain texture, editorial style."
+    aspect_ratio: "16:9"
+
+notes:
+  - Intercepting global fetch in App.tsx to automatically attach JWT token from localStorage to all API requests.
+  - Using framer-motion for reliable custom modals to avoid missing sub-components in generated UI files.
